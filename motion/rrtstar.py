@@ -3,7 +3,7 @@ import math
 import threading
 import numpy as np
 from scipy.interpolate import CubicSpline
-
+from scipy.spatial import KDTree
 #节点
 class Node(object):
     def __init__(self, x, y):
@@ -255,20 +255,19 @@ class RRT_star(object):
         return dist
 #  找到树中离采样点x_rand近的树节点
     def nearest(self, node_list, node_rand):
-        node_nearest = node_list[0]
-        nearest_dist = self.dist_node(node_nearest, node_rand)
-        for node in node_list:
-            dist = self.dist_node(node, node_rand)
-            if dist < nearest_dist:
-                node_nearest = node
-                nearest_dist = dist
-        return node_nearest
+        node_x = [node.x for node in node_list]
+        node_y = [node.y for node in node_list]
+        node_tree = KDTree(np.vstack((node_x, node_y)).T)
+        _, index = node_tree.query(np.array([node_rand.x, node_rand.y]), k=1)
+        return node_list[index]
+
 #  选择x_new的邻域内所有节点
     def neighbor_nodes(self, node_list, node_new):
-        Nodes_near = []
-        for node in node_list:
-            if self.dist_node(node, node_new) <= self.near_radius:
-                Nodes_near.append(node)
+        node_x = [node.x for node in node_list]
+        node_y = [node.y for node in node_list]
+        node_tree = KDTree(np.vstack((node_x, node_y)).T)
+        indices = node_tree.query_ball_point(np.array([node_new.x, node_new.y]), self.near_radius)
+        Nodes_near = [node_list[i] for i in indices]
         return Nodes_near
 # 对树进行重连, 将cost最小的节点作为新节点的父节点
     def rewire(self, node_new, node_new_parent, cost_new):
